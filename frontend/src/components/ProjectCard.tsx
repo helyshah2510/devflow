@@ -8,6 +8,7 @@ interface ProjectCardProps {
   tasks: Task[];
   basePath?:string;
   onDelete?: (project: Project) => void;
+  onEdit?: (project: Project) => void;
 }
 
 export default function ProjectCard({
@@ -15,6 +16,7 @@ export default function ProjectCard({
   tasks,
   basePath = '/projects',
   onDelete,
+  onEdit,
 }: ProjectCardProps) {
   const done = tasks.filter(
     (task) => task.status === 'DONE'
@@ -46,10 +48,25 @@ export default function ProjectCard({
           {project.name[0]?.toUpperCase()}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <span className="text-xs text-slate-500">
             Project #{project.id}
           </span>
+
+          {onEdit && (
+            <button
+              type="button"
+              title="Edit project"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onEdit(project);
+              }}
+              className="rounded-md px-2 py-1 text-xs text-slate-500 transition-colors hover:bg-indigo-500/10 hover:text-indigo-300"
+            >
+              Edit
+            </button>
+          )}
 
           {onDelete && (
             <button

@@ -206,3 +206,13 @@ export async function deleteProject(projectId: number): Promise<void> {
     method: 'DELETE',
   });
 }
+
+export async function updateProject(
+  projectId: number,
+  data: { name?: string; description?: string; memberIds?: number[] }
+): Promise<Project> {
+  return apiFetch<Project>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}

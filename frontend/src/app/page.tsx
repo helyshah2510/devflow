@@ -30,9 +30,9 @@ export default function Home() {
         </p>
 
         <div className="mt-8 flex gap-4">
-          <link href="/register" className="rounded-lg bg-indigo-500 px-6 py-3 font-medium transition hover:bg-indigo-400">
+          <Link href="/register" className="rounded-lg bg-indigo-500 px-6 py-3 font-medium transition hover:bg-indigo-400">
             Get Started
-          </link>
+          </Link>
 
           <button className="rounded-lg border border-white/10 px-6 py-3 font-medium text-gray-300 transition hover:bg-white/10">
             Learn More

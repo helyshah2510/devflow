@@ -1,4 +1,4 @@
-import { Injectable,ForbiddenException,NotFoundException } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateTaskDto } from './create-task.dto.js';
 import { UpdateTaskDto } from './update-task.dto.js';
@@ -7,56 +7,67 @@ import { UpdateTaskStatusDto } from './update-task-status.dto.js';
 
 @Injectable()
 export class TaskService {
-    constructor(private prisma:PrismaService){}
+    constructor(private prisma: PrismaService) { }
     async createTask(
         dto: CreateTaskDto,
         user: {
-        id: number;
-        email: string;
-        role: string;
+            id: number;
+            email: string;
+            role: string;
         },
     ) {
         // Admin chooses freely. A member's task is always assigned to themselves.
         const assignedToId =
-        user.role === 'ADMIN' ? dto.assignedToId : user.id;
+            user.role === 'ADMIN' ? dto.assignedToId : user.id;
 
         // 1. Find the project (and load its members)
         const project = await this.prisma.project.findUnique({
-        where: {
-            id: dto.projectId,
-        },
-        include: {
-            members: {
-                select: { id: true },
+            where: {
+                id: dto.projectId,
             },
-        },
+            include: {
+                members: {
+                    select: { id: true },
+                },
+            },
         });
 
         // 2. Project doesn't exist
         if (!project) {
-        throw new NotFoundException('Project not found');
+            throw new NotFoundException('Project not found');
         }
 
         // 3. Check permission
         // ADMIN can create tasks in any project.
         // MEMBER can create tasks only in projects they are a member of.
         if (
-        user.role !== 'ADMIN' &&
-        !project.members.some((m) => m.id === user.id)
+            user.role !== 'ADMIN' &&
+            !project.members.some((m) => m.id === user.id)
         ) {
-        throw new ForbiddenException(
-            'You are not assigned to this project',
-        );
+            throw new ForbiddenException(
+                'You are not assigned to this project',
+            );
         }
 
-        // 4. Create the task
+        // 4. The assignee (if any) must be a member of this project
+        if (
+            assignedToId !== undefined &&
+            assignedToId !== null &&
+            !project.members.some((m) => m.id === assignedToId)
+        ) {
+            throw new BadRequestException(
+                'Assignee must be a member of this project',
+            );
+        }
+
+        // 5. Create the task
         return this.prisma.task.create({
             data: {
                 title: dto.title,
                 description: dto.description,
                 priority: dto.priority,
                 projectId: dto.projectId,
-                assignedToId,   
+                assignedToId,
                 createdById: user.id,
             },
         });
@@ -68,19 +79,19 @@ export class TaskService {
             email: string;
             role: string;
         },
-        ) {
+    ) {
         if (user.role === 'ADMIN') {
             return this.prisma.task.findMany({
-            include: {
-                project: true,
-                assignedTo:{
-                    select:{
-                        id:true,
-                        email:true,
-                        role:true,
+                include: {
+                    project: true,
+                    assignedTo: {
+                        select: {
+                            id: true,
+                            email: true,
+                            role: true,
+                        },
                     },
                 },
-            },
             });
         }
 
@@ -89,34 +100,34 @@ export class TaskService {
                 project: { members: { some: { id: user.id } } },
             },
             include: {
-            project: true,
-            assignedTo:{
-                select:{
-                    id:true,
-                    email:true,
-                    role:true,
+                project: true,
+                assignedTo: {
+                    select: {
+                        id: true,
+                        email: true,
+                        role: true,
+                    },
                 },
-            },
             },
         });
     }
-    
+
     async updateTask(id: number, dto: UpdateTaskDto) {
         try {
             return await this.prisma.task.update({
-            where: {
-                id,
-            },
-            data: {
-                ...dto,
-            },
+                where: {
+                    id,
+                },
+                data: {
+                    ...dto,
+                },
             });
         } catch (error) {
             if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2025'
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2025'
             ) {
-            throw new NotFoundException('Task not found');
+                throw new NotFoundException('Task not found');
             }
 
             throw error;
@@ -131,10 +142,10 @@ export class TaskService {
             email: string;
             role: string;
         },
-        ) {
+    ) {
         const task = await this.prisma.task.findUnique({
             where: {
-            id,
+                id,
             },
         });
 
@@ -147,16 +158,16 @@ export class TaskService {
             task.assignedToId !== user.id
         ) {
             throw new ForbiddenException(
-            'You are not assigned to this task',
+                'You are not assigned to this task',
             );
         }
 
         return this.prisma.task.update({
             where: {
-            id,
+                id,
             },
             data: {
-            status: dto.status,
+                status: dto.status,
             },
         });
     }
@@ -164,25 +175,25 @@ export class TaskService {
     async deleteTask(id: number) {
         try {
             const task = await this.prisma.task.delete({
-            where: {
-                id,
-            },
+                where: {
+                    id,
+                },
             });
 
             return {
-            message: 'Task deleted successfully',
-            task,
+                message: 'Task deleted successfully',
+                task,
             };
         } catch (error) {
             if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === 'P2025'
+                error instanceof Prisma.PrismaClientKnownRequestError &&
+                error.code === 'P2025'
             ) {
-            throw new NotFoundException('Task not found');
+                throw new NotFoundException('Task not found');
             }
 
             throw error;
         }
     }
-    
+
 }

@@ -1,21 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createProject, getUsers } from '@/src/lib/api';
-import type { User } from '@/src/types';
+import { createProject, updateProject, getUsers } from '@/src/lib/api';
+import type { Project, User } from '@/src/types';
 
 type Props = {
+  project?: Project; // passed = edit mode, missing = add mode
   onClose: () => void;
-  onCreated: () => void;
+  onSaved: () => void;
 };
 
-export default function AddProjectModal({ onClose, onCreated }: Props) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+export default function AddProjectModal({ project, onClose, onSaved }: Props) {
+  const isEdit = !!project;
+
+  const [name, setName] = useState(project?.name ?? '');
+  const [description, setDescription] = useState(project?.description ?? '');
   const [users, setUsers] = useState<User[]>([]);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]); // newly picked people
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // People already on the project (edit mode only). These cannot be removed.
+  const currentMembers = project?.members ?? [];
+  const currentIds = currentMembers.map((m) => m.id);
 
   useEffect(() => {
     getUsers()
@@ -23,11 +30,13 @@ export default function AddProjectModal({ onClose, onCreated }: Props) {
       .catch((err) => setError(err.message));
   }, []);
 
-  // People already picked (shown as tags)
+  // Newly picked people (shown as removable tags)
   const selectedUsers = users.filter((u) => selectedIds.includes(u.id));
 
   // People still available in the dropdown
-  const availableUsers = users.filter((u) => !selectedIds.includes(u.id));
+  const availableUsers = users.filter(
+    (u) => !currentIds.includes(u.id) && !selectedIds.includes(u.id)
+  );
 
   function addMember(id: number) {
     setSelectedIds((current) => [...current, id]);
@@ -47,12 +56,21 @@ export default function AddProjectModal({ onClose, onCreated }: Props) {
     setError('');
 
     try {
-      await createProject({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        memberIds: selectedIds,
-      });
-      onCreated();
+      if (isEdit && project) {
+        await updateProject(project.id, {
+          name: name.trim(),
+          description: description.trim(),
+          memberIds: selectedIds.length > 0 ? selectedIds : undefined,
+        });
+      } else {
+        await createProject({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          memberIds: selectedIds,
+        });
+      }
+
+      onSaved();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
@@ -64,7 +82,9 @@ export default function AddProjectModal({ onClose, onCreated }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-md rounded-xl border border-slate-700 bg-slate-900 p-6 text-white">
-        <h2 className="mb-4 text-lg font-semibold">Add Project</h2>
+        <h2 className="mb-4 text-lg font-semibold">
+          {isEdit ? 'Edit Project' : 'Add Project'}
+        </h2>
 
         <label className="mb-1 block text-sm text-slate-400">Name</label>
         <input
@@ -81,7 +101,28 @@ export default function AddProjectModal({ onClose, onCreated }: Props) {
           className="mb-3 w-full rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm"
         />
 
-        <label className="mb-1 block text-sm text-slate-400">Members</label>
+        {isEdit && (
+          <>
+            <p className="mb-1 text-sm text-slate-400">Current members</p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              {currentMembers.length === 0 && (
+                <span className="text-xs text-slate-500">No members yet</span>
+              )}
+              {currentMembers.map((m) => (
+                <span
+                  key={m.id}
+                  className="rounded-full bg-slate-700/50 px-3 py-1 text-xs text-slate-300"
+                >
+                  {m.email}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
+
+        <label className="mb-1 block text-sm text-slate-400">
+          {isEdit ? 'Add members' : 'Members'}
+        </label>
         <select
           value=""
           onChange={(e) => {
@@ -136,7 +177,13 @@ export default function AddProjectModal({ onClose, onCreated }: Props) {
             disabled={saving}
             className="rounded-md bg-indigo-600 px-4 py-2 text-sm hover:bg-indigo-500 disabled:opacity-50"
           >
-            {saving ? 'Creating...' : 'Create'}
+            {saving
+              ? isEdit
+                ? 'Saving...'
+                : 'Creating...'
+              : isEdit
+                ? 'Save'
+                : 'Create'}
           </button>
         </div>
       </div>

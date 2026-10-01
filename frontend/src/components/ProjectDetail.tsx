@@ -218,6 +218,7 @@ export default function ProjectDetail({ backHref }: ProjectDetailProps) {
         {showCreateTask && (
           <CreateTaskModal
             projectId={project.id}
+            members={project.members ?? []}
             onClose={() => setShowCreateTask(false)}
             onCreated={(newTask) => {
               setTasks((currentTasks) => [

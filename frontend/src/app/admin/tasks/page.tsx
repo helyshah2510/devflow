@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getTasks,deleteTask } from '@/src/lib/api';
-import type { Task} from '@/src/types';
+import { getTasks, deleteTask } from '@/src/lib/api';
+import type { Task } from '@/src/types';
 import DeleteTaskModal from '@/src/components/DeleteTaskModal';
+import StatusFilter from '@/src/components/StatusFilter';
 
 export default function AdminTasksPage() {
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -11,6 +12,9 @@ export default function AdminTasksPage() {
     const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [userFilter, setUserFilter] = useState('');
 
     useEffect(() => {
         async function loadTasks() {
@@ -51,22 +55,64 @@ export default function AdminTasksPage() {
         }
     }
 
+    // People who have at least one task (no duplicates) -> for the name dropdown
+    const assignees = Array.from(
+        new Map(
+            tasks.flatMap((task) =>
+                task.assignedTo
+                    ? [[task.assignedTo.id, task.assignedTo.email] as [number, string]]
+                    : []
+            )
+        ).entries()
+    );
+
+    // A task must pass BOTH filters to stay on the table
+    const filteredTasks = tasks.filter((task) => {
+        const matchesStatus =
+            statusFilter === 'ALL' || task.status === statusFilter;
+
+        const matchesUser =
+            userFilter === '' || task.assignedToId === Number(userFilter);
+
+        return matchesStatus && matchesUser;
+    });
+
     if (loading) {
         return <p>Loading tasks...</p>;
     }
 
     return (
         <div className="px-6 py-10 text-white">
-            <div className="mb-8">
-                <p className="text-sm text-indigo-400">ADMIN PANEL</p>
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                    <p className="text-sm text-indigo-400">ADMIN PANEL</p>
 
-                <h1 className="text-2xl font-semibold">
-                    Tasks
-                </h1>
+                    <h1 className="text-2xl font-semibold">
+                        Tasks
+                    </h1>
 
-                <p className="mt-1 text-sm text-slate-400">
-                    {tasks.length} task{tasks.length !== 1 ? 's' : ''}
-                </p>
+                    <p className="mt-1 text-sm text-slate-400">
+                        {filteredTasks.length} task
+                        {filteredTasks.length !== 1 ? 's' : ''}
+                    </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <select
+                        value={userFilter}
+                        onChange={(e) => setUserFilter(e.target.value)}
+                        className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+                    >
+                        <option value="">All members</option>
+                        {assignees.map(([id, email]) => (
+                            <option key={id} value={id}>
+                                {email}
+                            </option>
+                        ))}
+                    </select>
+
+                    <StatusFilter onChange={setStatusFilter} />
+                </div>
             </div>
 
             <div className="overflow-x-auto rounded-2xl border border-white/10">
@@ -100,7 +146,18 @@ export default function AdminTasksPage() {
                     </thead>
 
                     <tbody>
-                        {tasks.map((task) => (
+                        {filteredTasks.length === 0 && (
+                            <tr>
+                                <td
+                                    colSpan={6}
+                                    className="px-6 py-8 text-center text-slate-400"
+                                >
+                                    No tasks match these filters.
+                                </td>
+                            </tr>
+                        )}
+
+                        {filteredTasks.map((task) => (
                             <tr
                                 key={task.id}
                                 className="border-b border-white/5"

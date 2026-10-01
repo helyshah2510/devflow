@@ -1,35 +1,31 @@
 'use client';
 
-import { useEffect,useState } from 'react';
-import type { Task,TaskPriority,User } from '../types';
-import { createTask,getUsers } from '../lib/api';
+import { useState } from 'react';
+import type { Task, TaskPriority, User } from '../types';
+import { createTask } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 
 interface CreateTaskModalProps {
   projectId: number;
+  members: User[];
   onClose: () => void;
   onCreated: (task: Task) => void;
 }
 
 export default function CreateTaskModal({
   projectId,
+  members,
   onClose,
   onCreated,
 }: CreateTaskModalProps) {
-    const { user } = useAuth();
-    const [users, setUsers] = useState<User[]>([]);
-    const [assignedToId, setAssignedToId] = useState<number | null>(null);
+  const { user } = useAuth();
+  const [assignedToId, setAssignedToId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState('');
-
-    useEffect(() => {
-        if (user?.role !== 'ADMIN') return;
-        getUsers().then(setUsers).catch(console.error);
-    }, [user?.role]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -55,11 +51,12 @@ export default function CreateTaskModal({
       onClose();
     } catch (error) {
       console.error(error);
-      setError('Unable to create task.');
+      setError(
+        error instanceof Error ? error.message : 'Unable to create task.'
+      );
     } finally {
       setIsCreating(false);
     }
-
   }
 
   return (
@@ -123,30 +120,39 @@ export default function CreateTaskModal({
           </label>
 
           {/* Assign to */}
-            <label className="mt-5 block">
+          <label className="mt-5 block">
             <span className="text-sm text-slate-400">Assign to</span>
 
             {user?.role === 'ADMIN' ? (
+              <>
                 <select
-                value={assignedToId ?? ''}
-                onChange={(event) =>
+                  value={assignedToId ?? ''}
+                  onChange={(event) =>
                     setAssignedToId(
-                    event.target.value ? Number(event.target.value) : null
+                      event.target.value ? Number(event.target.value) : null
                     )
-                }
-                className="mt-2 w-full rounded-lg border border-white/10 bg-[#12141f] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500/50"
+                  }
+                  className="mt-2 w-full rounded-lg border border-white/10 bg-[#12141f] px-3 py-2.5 text-sm text-white outline-none focus:border-indigo-500/50"
                 >
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                    {u.email}
+                  <option value="">Unassigned</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.email}
                     </option>
-                ))}
+                  ))}
                 </select>
+
+                {members.length === 0 && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    This project has no members yet. Add some with Edit on
+                    the Projects page.
+                  </p>
+                )}
+              </>
             ) : (
-                <p className="mt-2 text-sm text-slate-300">{user?.email} (you)</p>
+              <p className="mt-2 text-sm text-slate-300">{user?.email} (you)</p>
             )}
-            </label>
+          </label>
 
           {/* Priority */}
           <div className="mt-5">

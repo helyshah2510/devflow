@@ -11,10 +11,6 @@ export class UpdateProjectDto {
   description?: string;
 
   @IsOptional()
-  @IsInt()
-  assignedToId?: number;
-
-  @IsOptional()
   @IsArray()
   @IsInt({ each: true })
   memberIds?: number[];

@@ -12,13 +12,20 @@ export class ProjectsService {
         email: string;
         role: string;
     }) {
+        const include = {
+            members: {
+                select: { id: true, email: true, role: true, isActive: true },
+            },
+        };
+
         if (user.role === 'ADMIN') {
-            return this.prisma.project.findMany();
+            return this.prisma.project.findMany({ include });
         }
         return this.prisma.project.findMany({
             where: {
                 members: { some: { id: user.id } },
             },
+            include,
         });
     }
 
@@ -54,7 +61,7 @@ export class ProjectsService {
                         ? { description: dto.description }
                         : {}),
                     ...(dto.memberIds !== undefined
-                        ? { members: { set: dto.memberIds.map((id) => ({ id })) } }
+                        ? { members: { connect: dto.memberIds.map((id) => ({ id })) } }
                         : {}),
                 },
             });

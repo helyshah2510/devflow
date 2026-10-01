@@ -1,19 +1,33 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useProjectsWithTasks } from '@/src/hooks/useProjectsWithTasks';
 import ProjectCard from '@/src/components/ProjectCard';
 import AddProjectModal from '@/src/components/AddProjectModal';
 import DeleteConfirmModal from '@/src/components/DeleteConfirmModal';
-import { deleteProject } from '@/src/lib/api';
-import type { Project } from '@/src/types';
+import { deleteProject, getUsers } from '@/src/lib/api';
+import type { Project, User } from '@/src/types';
 
 export default function AdminProjectsPage() {
   const { projects, tasks, loading, reload } = useProjectsWithTasks();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+
+  const [users, setUsers] = useState<User[]>([]);
+  const [filterUserId, setFilterUserId] = useState('');
+
+  useEffect(() => {
+    getUsers().then(setUsers).catch(console.error);
+  }, []);
+
+  const filteredProjects = filterUserId
+    ? projects.filter((project) =>
+        project.members?.some((m) => m.id === Number(filterUserId))
+      )
+    : projects;
 
   async function handleConfirmDelete() {
     if (!projectToDelete) return;
@@ -54,20 +68,42 @@ export default function AdminProjectsPage() {
           <p className="text-sm text-indigo-400">ADMIN PANEL</p>
           <h1 className="text-2xl font-semibold">Projects</h1>
           <p className="mt-1 text-sm text-slate-400">
-            {projects.length} project{projects.length !== 1 ? 's' : ''}
+            {filteredProjects.length} project
+            {filteredProjects.length !== 1 ? 's' : ''}
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm hover:bg-indigo-500"
-        >
-          + Add Project
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={filterUserId}
+            onChange={(e) => setFilterUserId(e.target.value)}
+            className="rounded-md border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white"
+          >
+            <option value="">All members</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.email}
+              </option>
+            ))}
+          </select>
+
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="rounded-md bg-indigo-600 px-4 py-2 text-sm hover:bg-indigo-500"
+          >
+            + Add Project
+          </button>
+        </div>
       </div>
 
+      {filteredProjects.length === 0 && (
+        <p className="text-sm text-slate-400">
+          No projects found for this member.
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project) => {
+        {filteredProjects.map((project) => {
           const projectTasks = tasks.filter(
             (task) => task.projectId === project.id
           );
@@ -78,6 +114,7 @@ export default function AdminProjectsPage() {
               project={project}
               tasks={projectTasks}
               basePath="/admin/projects"
+              onEdit={(p) => setProjectToEdit(p)}
               onDelete={(p) => setProjectToDelete(p)}
             />
           );
@@ -87,7 +124,15 @@ export default function AdminProjectsPage() {
       {showAddModal && (
         <AddProjectModal
           onClose={() => setShowAddModal(false)}
-          onCreated={reload}
+          onSaved={reload}
+        />
+      )}
+
+      {projectToEdit && (
+        <AddProjectModal
+          project={projectToEdit}
+          onClose={() => setProjectToEdit(null)}
+          onSaved={reload}
         />
       )}
 
