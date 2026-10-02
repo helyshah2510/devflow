@@ -1,4 +1,4 @@
-import { Controller,Body,Post,Req,UseGuards, Get, Patch, Param,Delete,} from '@nestjs/common';
+import { Controller, Body, Post, Req, UseGuards, Get, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
 import { TaskService } from './task.service.js';
 import { CreateTaskDto } from './create-task.dto.js';
 import { Request } from 'express';
@@ -36,34 +36,34 @@ export class TaskController {
     return this.taskService.getTasks(req.user);
   }
 
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   updateTask(
-    @Param('id') id:string,
-    @Body() dto:UpdateTaskDto,
-  ){
-    return this.taskService.updateTask(Number(id),dto);
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateTaskDto,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.taskService.updateTask(id, dto, req.user);
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id/status')
   updateTaskStatus(
-    @Param('id') id: string,
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateTaskStatusDto,
     @Req() req: AuthenticatedRequest,
   ) {
-      return this.taskService.updateTaskStatus(
-        Number(id),
-        dto,
-        req.user,
-      );
-    }
-  
-  @UseGuards(JwtAuthGuard,RolesGuard)
-  @Roles('ADMIN')  
+    return this.taskService.updateTaskStatus(
+      id,
+      dto,
+      req.user,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   @Delete(':id')
-  deleteTask(@Param('id')id:string){
-    return this.taskService.deleteTask(Number(id));
+  deleteTask(@Param('id', ParseIntPipe) id: number) {
+    return this.taskService.deleteTask(id);
   }
 }

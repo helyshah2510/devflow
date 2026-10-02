@@ -1,4 +1,4 @@
-import { Body,UseGuards,Post,Controller,Req,Get,Param, Delete, } from '@nestjs/common';
+import { Body, UseGuards, Post, Controller, Req, Get, Param, Delete, ParseIntPipe } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth.guard.js';
 import { CommentService } from './comment.service.js';
 import { Request } from 'express';
@@ -25,25 +25,21 @@ export class CommentController {
     return this.commentService.createComment(dto, req.user);
   }
 
-    @Get('task/:taskId')
-    @UseGuards(JwtAuthGuard)
-    getComments(
-    @Param('taskId') taskId: string,
+  @Get('task/:taskId')
+  @UseGuards(JwtAuthGuard)
+  getComments(
+    @Param('taskId', ParseIntPipe) taskId: number,
     @Req() req: AuthenticatedRequest,
-    ) {
-    return this.commentService.getComments(
-        Number(taskId),
-        req.user,
-    );
-    }
+  ) {
+    return this.commentService.getComments(taskId, req.user);
+  }
 
-    @UseGuards(JwtAuthGuard)
-    @Delete(':id')
-    deleteComment(
-        @Param('id') id:string,
-        @Req() req:AuthenticatedRequest,
-    ){
-        return this.commentService.deleteComment(Number(id),req.user,);
-    }
-
+  @UseGuards(JwtAuthGuard)
+  @Delete(':id')
+  deleteComment(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+  ) {
+    return this.commentService.deleteComment(id, req.user);
+  }
 }

@@ -112,26 +112,69 @@ export class TaskService {
         });
     }
 
-    async updateTask(id: number, dto: UpdateTaskDto) {
-        try {
-            return await this.prisma.task.update({
-                where: {
-                    id,
+    async updateTask(
+        id: number,
+        dto: UpdateTaskDto,
+        user: {
+            id: number;
+            email: string;
+            role: string;
+        },
+    ) {
+        const task = await this.prisma.task.findUnique({
+            where: { id },
+            include: {
+                project: {
+                    include: {
+                        members: {
+                            select: { id: true },
+                        },
+                    },
                 },
-                data: {
-                    ...dto,
-                },
-            });
-        } catch (error) {
-            if (
-                error instanceof Prisma.PrismaClientKnownRequestError &&
-                error.code === 'P2025'
-            ) {
-                throw new NotFoundException('Task not found');
+            },
+        });
+
+        if (!task) {
+            throw new NotFoundException('Task not found');
+        }
+
+        if (user.role !== 'ADMIN' && task.assignedToId !== user.id) {
+            throw new ForbiddenException(
+                'You are not assigned to this task',
+            );
+        }
+
+        if (dto.assignedToId !== undefined && dto.assignedToId !== null) {
+            if (user.role !== 'ADMIN' && dto.assignedToId !== user.id) {
+                throw new ForbiddenException(
+                    'Members cannot reassign tasks',
+                );
             }
 
-            throw error;
+            const isMember = task.project.members.some(
+                (m) => m.id === dto.assignedToId,
+            );
+            if (!isMember) {
+                throw new BadRequestException(
+                    'Assignee must be a member of this project',
+                );
+            }
         }
+
+        return this.prisma.task.update({
+            where: { id },
+            data: {
+                ...(dto.title !== undefined ? { title: dto.title } : {}),
+                ...(dto.description !== undefined
+                    ? { description: dto.description }
+                    : {}),
+                ...(dto.priority !== undefined ? { priority: dto.priority } : {}),
+                ...(dto.status !== undefined ? { status: dto.status } : {}),
+                ...(dto.assignedToId !== undefined
+                    ? { assignedToId: dto.assignedToId }
+                    : {}),
+            },
+        });
     }
 
     async updateTaskStatus(
